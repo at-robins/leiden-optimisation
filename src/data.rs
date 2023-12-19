@@ -1,6 +1,6 @@
 //! This module provides types for handling cluster optimisation related data.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use getset::{CopyGetters, Getters};
 
@@ -12,7 +12,7 @@ pub struct ResolutionData {
     resolution: f64,
     /// The ID of cells grouped by cluster.
     #[getset(get = "pub")]
-    clustered_cells: Vec<Vec<u64>>,
+    clustered_cells: Vec<HashSet<u64>>,
 }
 
 impl ResolutionData {
@@ -35,7 +35,7 @@ impl ResolutionData {
     /// # Parameters
     ///
     /// * `cells` - the cells with according clustering information
-    pub fn group_by_cluster<T: AsRef<CellSample>>(cells: &[T]) -> Vec<Vec<u64>> {
+    pub fn group_by_cluster<T: AsRef<CellSample>>(cells: &[T]) -> Vec<HashSet<u64>> {
         let mut map: HashMap<u64, Vec<u64>> = HashMap::new();
         for cell in cells {
             let cell: &CellSample = cell.as_ref();
@@ -45,7 +45,9 @@ impl ResolutionData {
                 map.insert(cell.cluster(), vec![cell.id()]);
             }
         }
-        map.into_iter().map(|(_, value)| value).collect()
+        map.into_iter()
+            .map(|(_, value)| HashSet::from_iter(value.into_iter()))
+            .collect()
     }
 }
 
@@ -65,7 +67,7 @@ impl CellSample {
     ///
     /// # Parameters
     ///
-    /// * `id` - the ID (typically a numeric representation of the barcode) of the cell
+    /// * `id` - the unique ID (typically a numeric representation of the barcode) of the cell
     /// * `cluster` - the cluster ID the cell belongs to
     pub fn new(id: u64, cluster: u64) -> Self {
         Self { id, cluster }

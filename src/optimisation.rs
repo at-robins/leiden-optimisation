@@ -6,7 +6,7 @@ use std::{borrow::Borrow, collections::HashSet};
 ///
 /// * `cluster_a` - the first cluster to compare
 /// * `cluster_b` - the second cluster to compare
-pub fn cluster_overlap_absolute<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>>(
+pub fn cluster_overlap_absolute<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
     cluster_a: A,
     cluster_b: B,
 ) -> usize {
@@ -20,7 +20,7 @@ pub fn cluster_overlap_absolute<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>
 ///
 /// * `cluster_parent` - the parent cluster to use as reference
 /// * `cluster_child` - the child cluster calculate the stability from
-pub fn cluster_overlap_relative<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>>(
+pub fn cluster_overlap_relative<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
     cluster_parent: A,
     cluster_child: B,
 ) -> Result<f64, String> {
@@ -40,7 +40,7 @@ pub fn cluster_overlap_relative<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>
 ///
 /// * `cluster_parent` - the parent cluster to use as reference
 /// * `cluster_child` - the child cluster calculate the stability from
-pub fn cluster_overlaps_relative<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>>(
+pub fn cluster_overlaps_relative<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
     clusters_parent: &[A],
     cluster_child: B,
 ) -> Result<Vec<f64>, String> {
@@ -66,7 +66,7 @@ pub fn cluster_overlaps_relative<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>
 ///
 /// * `cluster_parent` - the parent cluster to use as reference
 /// * `cluster_child` - the child cluster calculate the stability from
-pub fn cluster_stability<A: Borrow<HashSet<u64>>, B: Borrow<HashSet<u64>>>(
+pub fn cluster_stability<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
     clusters_parent: &[A],
     cluster_child: B,
 ) -> Result<f64, String> {
@@ -85,8 +85,8 @@ mod tests {
 
     #[test]
     fn test_cluster_overlap_absolute_partial() {
-        let set_a: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 2, 3, 7]);
-        let set_b: HashSet<u64> = HashSet::from_iter(vec![0u64, 3, 9, 24, 42, 84, 182881821]);
+        let set_a: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 2, 3, 7]);
+        let set_b: HashSet<usize> = HashSet::from_iter(vec![0usize, 3, 9, 24, 42, 84, 182881821]);
         // Overlap with each other.
         assert_eq!(2, cluster_overlap_absolute(&set_a, &set_b));
         assert_eq!(2, cluster_overlap_absolute(&set_b, &set_a));
@@ -97,8 +97,8 @@ mod tests {
 
     #[test]
     fn test_cluster_overlap_full() {
-        let set_a: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 2, 3, 7]);
-        let set_b: HashSet<u64> = HashSet::from_iter(vec![7u64, 1, 3, 0, 2]);
+        let set_a: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 2, 3, 7]);
+        let set_b: HashSet<usize> = HashSet::from_iter(vec![7usize, 1, 3, 0, 2]);
         assert_eq!(set_a.len(), set_b.len());
         // Overlap with each other.
         assert_eq!(set_a.len(), cluster_overlap_absolute(&set_a, &set_b));
@@ -110,16 +110,16 @@ mod tests {
 
     #[test]
     fn test_cluster_overlap_none() {
-        let set_a: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 2, 3, 7]);
-        let set_b: HashSet<u64> = HashSet::from_iter(vec![8u64, 9, 10, 11, 42]);
+        let set_a: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 2, 3, 7]);
+        let set_b: HashSet<usize> = HashSet::from_iter(vec![8usize, 9, 10, 11, 42]);
         assert_eq!(0, cluster_overlap_absolute(&set_a, &set_b));
         assert_eq!(0, cluster_overlap_absolute(&set_b, &set_a));
     }
 
     #[test]
     fn test_cluster_overlap_empty() {
-        let set_full: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 2, 3, 7]);
-        let set_empty: HashSet<u64> = HashSet::new();
+        let set_full: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 2, 3, 7]);
+        let set_empty: HashSet<usize> = HashSet::new();
         assert_eq!(0, cluster_overlap_absolute(&set_empty, &set_empty));
         assert_eq!(0, cluster_overlap_absolute(&set_full, &set_empty));
         assert_eq!(0, cluster_overlap_absolute(&set_empty, &set_full));
@@ -127,25 +127,25 @@ mod tests {
 
     #[test]
     fn test_cluster_overlap_relative_empty_child_cluster() {
-        let cluster_parent: HashSet<u64> = HashSet::from_iter(vec![0u64, 1]);
-        let cluster_child: HashSet<u64> = HashSet::new();
+        let cluster_parent: HashSet<usize> = HashSet::from_iter(vec![0usize, 1]);
+        let cluster_child: HashSet<usize> = HashSet::new();
         // Overlap with each other.
         assert!(cluster_overlap_relative(&cluster_parent, &cluster_child).is_err());
     }
 
     #[test]
     fn test_cluster_overlap_relative_larger_child_cluster() {
-        let cluster_parent: HashSet<u64> = HashSet::from_iter(vec![0u64, 1]);
-        let cluster_child: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 3, 4, 5, 6, 10, 11]);
+        let cluster_parent: HashSet<usize> = HashSet::from_iter(vec![0usize, 1]);
+        let cluster_child: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 3, 4, 5, 6, 10, 11]);
         assert_ulps_eq!(0.25, cluster_overlap_relative(&cluster_parent, &cluster_child).unwrap());
     }
 
     #[test]
     fn test_cluster_overlap_relative_larger_parent_cluster() {
-        let cluster_parent: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 3, 4, 5, 6, 10, 11]);
-        let cluster_child_full: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 4]);
-        let cluster_child_partial: HashSet<u64> = HashSet::from_iter(vec![0u64, 12, 13, 14, 15]);
-        let cluster_child_none: HashSet<u64> = HashSet::from_iter(vec![12, 13, 14, 15]);
+        let cluster_parent: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 3, 4, 5, 6, 10, 11]);
+        let cluster_child_full: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 4]);
+        let cluster_child_partial: HashSet<usize> = HashSet::from_iter(vec![0usize, 12, 13, 14, 15]);
+        let cluster_child_none: HashSet<usize> = HashSet::from_iter(vec![12, 13, 14, 15]);
         assert_ulps_eq!(
             1.0,
             cluster_overlap_relative(&cluster_parent, &cluster_child_full).unwrap()
@@ -162,12 +162,12 @@ mod tests {
 
     #[test]
     fn test_cluster_overlaps_relative() {
-        let clusters_parent: Vec<HashSet<u64>> = vec![
-            HashSet::from_iter(vec![0u64, 3, 6]),
-            HashSet::from_iter(vec![1u64, 4, 7]),
-            HashSet::from_iter(vec![2u64, 5, 8]),
+        let clusters_parent: Vec<HashSet<usize>> = vec![
+            HashSet::from_iter(vec![0usize, 3, 6]),
+            HashSet::from_iter(vec![1usize, 4, 7]),
+            HashSet::from_iter(vec![2usize, 5, 8]),
         ];
-        let cluster_child: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 4, 7]);
+        let cluster_child: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 4, 7]);
         let expected_overlaps: Vec<f64> = vec![0.25, 0.75, 0.0];
         let observed_overlaps = cluster_overlaps_relative(&clusters_parent, cluster_child).unwrap();
 
@@ -178,35 +178,35 @@ mod tests {
 
     #[test]
     fn test_cluster_overlaps_empty() {
-        let clusters_parent: Vec<HashSet<u64>> = vec![
-            HashSet::from_iter(vec![0u64, 3, 6]),
-            HashSet::from_iter(vec![1u64, 4, 7]),
-            HashSet::from_iter(vec![2u64, 5, 8]),
+        let clusters_parent: Vec<HashSet<usize>> = vec![
+            HashSet::from_iter(vec![0usize, 3, 6]),
+            HashSet::from_iter(vec![1usize, 4, 7]),
+            HashSet::from_iter(vec![2usize, 5, 8]),
         ];
-        let cluster_child: HashSet<u64> = HashSet::new();
+        let cluster_child: HashSet<usize> = HashSet::new();
         assert!(cluster_overlaps_relative(&clusters_parent, cluster_child).is_err());
     }
 
 
     #[test]
     fn test_cluster_stability() {
-        let clusters_parent: Vec<HashSet<u64>> = vec![
-            HashSet::from_iter(vec![0u64, 3, 6]),
-            HashSet::from_iter(vec![1u64, 4, 7]),
-            HashSet::from_iter(vec![2u64, 5, 8]),
+        let clusters_parent: Vec<HashSet<usize>> = vec![
+            HashSet::from_iter(vec![0usize, 3, 6]),
+            HashSet::from_iter(vec![1usize, 4, 7]),
+            HashSet::from_iter(vec![2usize, 5, 8]),
         ];
-        let cluster_child: HashSet<u64> = HashSet::from_iter(vec![0u64, 1, 4, 7]);
+        let cluster_child: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 4, 7]);
         assert_ulps_eq!(0.625, cluster_stability(&clusters_parent, cluster_child).unwrap());
     }
 
     #[test]
     fn test_cluster_stability_child_empty() {
-        let clusters_parent: Vec<HashSet<u64>> = vec![
-            HashSet::from_iter(vec![0u64, 3, 6]),
-            HashSet::from_iter(vec![1u64, 4, 7]),
-            HashSet::from_iter(vec![2u64, 5, 8]),
+        let clusters_parent: Vec<HashSet<usize>> = vec![
+            HashSet::from_iter(vec![0usize, 3, 6]),
+            HashSet::from_iter(vec![1usize, 4, 7]),
+            HashSet::from_iter(vec![2usize, 5, 8]),
         ];
-        let cluster_child: HashSet<u64> = HashSet::new();
+        let cluster_child: HashSet<usize> = HashSet::new();
         assert!(cluster_stability(&clusters_parent, cluster_child).is_err());
     }
 }

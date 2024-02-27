@@ -1,3 +1,5 @@
+//! This module provides algorithms to calculate cluster stability.
+
 use std::{borrow::Borrow, collections::HashSet};
 
 /// Returns the number of cells overlapping between the 2 clusters.

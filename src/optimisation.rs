@@ -1,6 +1,16 @@
 //! This module provides algorithms to calculate cluster stability.
 
-use std::{borrow::Borrow, collections::HashSet};
+use std::{borrow::Borrow, collections::HashSet, rc::Rc};
+
+use compute::{
+    linalg::Vector,
+    optimize::{Optimizer, Tape, Var, LM},
+};
+
+use crate::graph::ResolutionNode;
+
+/// The initial parameter estimates to use for model fitting.
+const INITIAL_PARAMETER_ESTIMATES: [f64; 4] = [1.0, 1.0, -1.0, 0.5];
 
 /// Returns the number of cells overlapping between the 2 clusters.
 ///
@@ -79,6 +89,80 @@ pub fn cluster_stability<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
         .sum())
 }
 
+/// A regression of cluster stability data.
+pub struct ClusterStabilityRegression {
+    parameters: [f64; 4],
+}
+
+impl ClusterStabilityRegression {
+    pub fn new(branch: &[Rc<ResolutionNode>]) -> Self {
+        Self {
+            parameters: Self::estimate_parameters(branch),
+        }
+    }
+
+    /// Calculates the parameter estimates based on the specified branch.
+    fn estimate_parameters(branch: &[Rc<ResolutionNode>]) -> [f64; 4] {
+        let y: Vector = branch
+            .iter()
+            .filter_map(|node| node.optimal_stability())
+            .collect();
+        let x: Vector = branch
+            .iter()
+            .filter_map(|node| {
+                node.optimal_stability()
+                    .map(|_| node.number_of_clusters() as f64)
+            })
+            .collect();
+        // Sets up and runs the non-linear regression.
+        let lm = LM::default();
+        let (inferred_parameters, _) =
+            lm.optimize(Self::model_function, &INITIAL_PARAMETER_ESTIMATES, &[&x, &y], 50);
+        [
+            inferred_parameters[0],
+            inferred_parameters[1],
+            inferred_parameters[2],
+            inferred_parameters[3],
+        ]
+    }
+
+    /// The regression / model function to optimise.
+    fn model_function<'a>(params: &[Var<'a>], data: &[&[f64]]) -> Var<'a> {
+        if params.len() != 4 {
+            panic!(
+                "The number of parameters is incorrect. {} parameters were supplied.",
+                params.len()
+            );
+        }
+        let length_data = data.len();
+        let length_data_inner = data.get(0).map(|value| value.len());
+        if length_data != 1 || length_data_inner.map(|length| length != 1).unwrap_or(true) {
+            panic!(
+                "The input dataformat is incorrect. Format {}/{:?} were supplied.",
+                length_data, length_data_inner
+            );
+        }
+        (params[0] / (data[0][0] * params[1] + params[2])) + params[3]
+    }
+
+    /// The regession model for cluster stability. It returns the predicted stability
+    /// for the specified number of clusters.
+    ///
+    /// # Parameters
+    ///
+    /// * `parameters` - the parameters of the function
+    /// * `x` - the number of clusters
+    pub fn predict(&self, x: f64) -> f64 {
+        let tape = Tape::new();
+        let parameters: Vec<Var> = self
+            .parameters
+            .iter()
+            .map(|value| tape.add_var(*value))
+            .collect();
+        Self::model_function(&parameters, &[&[x]]).val()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use approx::assert_ulps_eq;
@@ -144,9 +228,11 @@ mod tests {
 
     #[test]
     fn test_cluster_overlap_relative_larger_parent_cluster() {
-        let cluster_parent: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 3, 4, 5, 6, 10, 11]);
+        let cluster_parent: HashSet<usize> =
+            HashSet::from_iter(vec![0usize, 1, 3, 4, 5, 6, 10, 11]);
         let cluster_child_full: HashSet<usize> = HashSet::from_iter(vec![0usize, 1, 4]);
-        let cluster_child_partial: HashSet<usize> = HashSet::from_iter(vec![0usize, 12, 13, 14, 15]);
+        let cluster_child_partial: HashSet<usize> =
+            HashSet::from_iter(vec![0usize, 12, 13, 14, 15]);
         let cluster_child_none: HashSet<usize> = HashSet::from_iter(vec![12, 13, 14, 15]);
         assert_ulps_eq!(
             1.0,
@@ -188,7 +274,6 @@ mod tests {
         let cluster_child: HashSet<usize> = HashSet::new();
         assert!(cluster_overlaps_relative(&clusters_parent, cluster_child).is_err());
     }
-
 
     #[test]
     fn test_cluster_stability() {

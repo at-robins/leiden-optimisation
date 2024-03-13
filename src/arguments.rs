@@ -10,9 +10,12 @@ pub struct CommandLineArguments {
     /// The path to the CSV file (UTF-8 encoded, comma delimeted) containing the clustering information.
     #[getset(get = "pub")]
     csv_file: PathBuf,
-    /// The output directory. Defaults to the parent directory of the input CSV.
+    /// The output directory [default: the parent directory of the input CSV]
     #[arg(short, long)]
     output_directory: Option<PathBuf>,
+    /// The threashold used to compute the optimal clustering resolution.
+    #[arg(short, long, default_value_t = 0.95)]
+    stability_threashold: f64,
 }
 
 impl CommandLineArguments {

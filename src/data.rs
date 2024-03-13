@@ -1,14 +1,20 @@
 //! This module provides types for handling cluster optimisation related data.
 
-use std::collections::{HashMap, HashSet};
+use std::{
+    borrow::Borrow,
+    collections::{HashMap, HashSet},
+};
 
 use getset::{CopyGetters, Getters};
 
-use crate::optimisation::cluster_stability;
+use crate::optimisation::{cluster_overlaps_relative, cluster_stability};
 
 #[derive(CopyGetters, Getters, Clone, Debug)]
 /// Cells grouped by cluster with an according resolution.
 pub struct Cluster {
+    /// The original identifier of the cluster (as specified in the input file).
+    #[getset(get_copy = "pub")]
+    cluster_id: usize,
     /// The absolute number of cells in all clusters.
     #[getset(get_copy = "pub")]
     total_cell_count: usize,
@@ -22,10 +28,12 @@ impl Cluster {
     ///
     /// # Parameters
     ///
+    /// * `cluster_id` - the original identifier of the cluster (as specified in the input file)
     /// * `cells` - the cells belonging to the cluster
     /// * `total_cell_count` - the number of cells in clusters combined
-    pub fn new(cells: HashSet<usize>, total_cell_count: usize) -> Self {
+    pub fn new(cluster_id: usize, cells: HashSet<usize>, total_cell_count: usize) -> Self {
         Self {
+            cluster_id,
             total_cell_count,
             cells,
         }
@@ -34,6 +42,33 @@ impl Cluster {
     /// Returns the relative cluster size compared to all other clusters of the same [`ResolutionData`].
     pub fn relative_cluster_size(&self) -> f64 {
         (self.cells().len() as f64) / (self.total_cell_count() as f64)
+    }
+
+    /// Returns the best matching parent population based on the specified populations
+    /// or an error if no parent populations have been specified.
+    ///
+    /// # Parameters
+    ///
+    /// * `potential_parents` - the potential parent clusters
+    pub fn best_parent<T: Borrow<Cluster>>(
+        &self,
+        potential_parents: &[T],
+    ) -> Result<usize, &'static str> {
+        let potential_parent_cell_clusters: Vec<&HashSet<usize>> = potential_parents
+            .iter()
+            .map(|cluster| cluster.borrow().cells())
+            .collect();
+
+        potential_parents
+            .iter()
+            .map(|cluster| cluster.borrow().cluster_id())
+            .zip(cluster_overlaps_relative(&potential_parent_cell_clusters, self.cells())?)
+            .max_by(|a, b| {
+                a.1.partial_cmp(&b.1)
+                    .expect("The relative cluster overlap must be a valid number.")
+            })
+            .map(|value| value.0)
+            .ok_or("No parent clusters have been supplied.")
     }
 }
 
@@ -74,6 +109,11 @@ impl ResolutionData {
     ///
     /// * `cells` - the cells with according clustering information
     pub fn group_by_cluster<T: AsRef<CellSample>>(cells: &[T]) -> Vec<Cluster> {
+        // The default value does not matter, as if the vector is empty the value will not be used.
+        let cluster_id = cells
+            .get(0)
+            .map(|cell| cell.as_ref().cluster())
+            .unwrap_or_default();
         let total_cell_number = cells.len();
         let mut map: HashMap<usize, Vec<usize>> = HashMap::new();
         for cell in cells {
@@ -86,7 +126,7 @@ impl ResolutionData {
         }
         map.into_iter()
             .map(|(_, value)| {
-                Cluster::new(HashSet::from_iter(value.into_iter()), total_cell_number)
+                Cluster::new(cluster_id, HashSet::from_iter(value.into_iter()), total_cell_number)
             })
             .collect()
     }
@@ -272,10 +312,33 @@ mod tests {
     fn test_cluster_relative_cluster_size() {
         let cells = HashSet::from_iter([0usize, 1, 2, 4]);
         let total_cell_count = 10;
-        let cluster = Cluster::new(cells.clone(), total_cell_count);
+        let cluster_id = 42;
+        let cluster = Cluster::new(cluster_id, cells.clone(), total_cell_count);
+        assert_eq!(cluster.cluster_id(), cluster_id);
         assert_eq!(cluster.total_cell_count(), total_cell_count);
         assert_eq!(cells.len(), cluster.cells().len());
         assert_eq!(cells.len(), cells.intersection(cluster.cells()).count());
         assert_ulps_eq!(0.4, cluster.relative_cluster_size());
+    }
+
+    #[test]
+    fn test_cluster_best_parent() {
+        let parent_clusters: Vec<Cluster> = [
+            vec![8, 9, 10, 11, 12, 13],
+            vec![0usize, 1, 4],
+            vec![2, 5, 6, 7],
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, cells)| Cluster::new(i, HashSet::from_iter(cells), 13))
+        .collect();
+        let empty_parents: Vec<Cluster> = Vec::new();
+        let cells = HashSet::from_iter([0usize, 1, 2, 4]);
+        let total_cell_count = 10;
+        let cluster_id = 42;
+        let cluster = Cluster::new(cluster_id, cells.clone(), total_cell_count);
+
+        assert_eq!(cluster.best_parent(&parent_clusters), Ok(1));
+        assert!(cluster.best_parent(&empty_parents).is_err());
     }
 }

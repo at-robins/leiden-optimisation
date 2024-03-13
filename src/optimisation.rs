@@ -39,8 +39,7 @@ pub fn cluster_overlap_relative<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usi
     if cluster_child.borrow().is_empty() {
         Err("The child cluster is empty.".to_string())
     } else {
-        let overlap =
-            cluster_overlap_absolute(cluster_parent.borrow(), cluster_child.borrow()) as f64;
+        let overlap = cluster_overlap_absolute(cluster_parent.borrow(), cluster_child.borrow());
         Ok((overlap as f64) / (cluster_child.borrow().len() as f64))
     }
 }
@@ -55,9 +54,9 @@ pub fn cluster_overlap_relative<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usi
 pub fn cluster_overlaps_relative<A: Borrow<HashSet<usize>>, B: Borrow<HashSet<usize>>>(
     clusters_parent: &[A],
     cluster_child: B,
-) -> Result<Vec<f64>, String> {
+) -> Result<Vec<f64>, &'static str> {
     if cluster_child.borrow().is_empty() {
-        Err("The child cluster is empty.".to_string())
+        Err("The child cluster is empty.")
     } else {
         let overlaps = clusters_parent
             .iter()

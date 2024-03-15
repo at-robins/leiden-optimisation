@@ -109,11 +109,6 @@ impl ResolutionData {
     ///
     /// * `cells` - the cells with according clustering information
     pub fn group_by_cluster<T: AsRef<CellSample>>(cells: &[T]) -> Vec<Cluster> {
-        // The default value does not matter, as if the vector is empty the value will not be used.
-        let cluster_id = cells
-            .get(0)
-            .map(|cell| cell.as_ref().cluster())
-            .unwrap_or_default();
         let total_cell_number = cells.len();
         let mut map: HashMap<usize, Vec<usize>> = HashMap::new();
         for cell in cells {
@@ -125,7 +120,7 @@ impl ResolutionData {
             }
         }
         map.into_iter()
-            .map(|(_, value)| {
+            .map(|(cluster_id, value)| {
                 Cluster::new(cluster_id, HashSet::from_iter(value.into_iter()), total_cell_number)
             })
             .collect()

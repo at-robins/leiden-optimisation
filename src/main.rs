@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Builds the cluster stability graph.
     let resolution_data = parse_input_csv(input_file)?;
-    let result_graph = to_graph(resolution_data);
+    let result_graph = to_graph(&resolution_data);
     let top_branch: Vec<Rc<ResolutionNode>> = result_graph
         .iter()
         .max_by(|a, b| {
@@ -39,6 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 mod arguments;
 mod data;
+mod genealogy;
 mod graph;
 mod input;
 mod optimisation;

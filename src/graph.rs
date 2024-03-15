@@ -10,9 +10,9 @@ use crate::data::{ClusterStabilityData, ResolutionData};
 ///
 /// * `resplutions` - the resolution data to aggregate
 pub fn aggregate_by_number_of_clusters(
-    resolutions: Vec<ResolutionData>,
-) -> HashMap<usize, Vec<ResolutionData>> {
-    let mut cluster_map: HashMap<usize, Vec<ResolutionData>> = HashMap::new();
+    resolutions: &[ResolutionData],
+) -> HashMap<usize, Vec<&ResolutionData>> {
+    let mut cluster_map: HashMap<usize, Vec<&ResolutionData>> = HashMap::new();
     for resolution in resolutions {
         let number_of_clusters = resolution.clusters();
         if let Some(cluster_data) = cluster_map.get_mut(&number_of_clusters) {
@@ -30,7 +30,7 @@ pub fn aggregate_by_number_of_clusters(
 /// # Parameters
 ///
 /// * `resolutions` - the resolution data to build the graph from
-pub fn to_graph(resolutions: Vec<ResolutionData>) -> Vec<Rc<ResolutionNode>> {
+pub fn to_graph(resolutions: &[ResolutionData]) -> Vec<Rc<ResolutionNode>> {
     let map = aggregate_by_number_of_clusters(resolutions);
     let mut ordered_cluster_keys: Vec<usize> = map.keys().cloned().collect();
     ordered_cluster_keys.sort();

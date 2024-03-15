@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use getset::Getters;
+use getset::{CopyGetters, Getters};
 
 /// A tool for optimising the resolution parameter of the Leiden clustering algorithm.
-#[derive(Parser, Getters, Debug)]
+#[derive(Parser, CopyGetters, Getters, Debug)]
 #[command(author, version, about, long_about = None)]
 pub struct CommandLineArguments {
     /// The path to the CSV file (UTF-8 encoded, comma delimeted) containing the clustering information.
@@ -14,6 +14,7 @@ pub struct CommandLineArguments {
     #[arg(short, long)]
     output_directory: Option<PathBuf>,
     /// The threashold used to compute the optimal clustering resolution.
+    #[getset(get_copy = "pub")]
     #[arg(short, long, default_value_t = 0.95)]
     stability_threashold: f64,
 }

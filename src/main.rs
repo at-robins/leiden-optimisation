@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use arguments::CommandLineArguments;
 use clap::Parser;
+use genealogy::{branch_to_resolution_data, trim_branch, ClusterGenealogyNode};
 use graph::{to_graph, ResolutionNode};
 use input::parse_input_csv;
 use plotting::plot_branch;
@@ -26,7 +27,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .unwrap_or(Vec::new());
 
     // Plots the top branch
-    let output_graph_name = if let Some(file_name) = input_file.file_name() {
+    let output_graph_name = if let Some(file_name) = input_file.file_stem() {
         format!("stability_graph_{}.svg", file_name.to_string_lossy())
     } else {
         "stability_graph_unknown_sample.svg".to_string()
@@ -34,6 +35,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let output_graph_path = output_dir.join(output_graph_name);
     plot_branch(&top_branch, output_graph_path)?;
 
+    let trimmed_top_branch = trim_branch(&top_branch, cl_args.stability_threashold());
+    let cluster_relation_tree = ClusterGenealogyNode::from_resolution_data(&branch_to_resolution_data(
+        &trimmed_top_branch,
+        &resolution_data,
+    )?)?;
+    let output_genealogy_name = if let Some(file_name) = input_file.file_stem() {
+        format!("genealogy_{}.json", file_name.to_string_lossy())
+    } else {
+        "genealogy_unknown_sample.json".to_string()
+    };
+    let output_genealogy_path = output_dir.join(output_genealogy_name);
+
+    serde_json::to_writer(std::fs::File::create(output_genealogy_path)?, &cluster_relation_tree)?;
     Ok(())
 }
 

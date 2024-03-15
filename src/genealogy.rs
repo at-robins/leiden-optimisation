@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     data::{Cluster, ResolutionData},
     graph::ResolutionNode,
+    optimisation::ClusterStabilityRegression,
 };
 
 #[derive(CopyGetters, Getters, Clone, Debug, Deserialize, Serialize)]
@@ -136,4 +137,29 @@ pub fn branch_to_resolution_data<'a, 'b>(
         );
     }
     Ok(branch_resolution_data)
+}
+
+/// Removes all nodes from the branch that do not pass the specified stability threshold.
+///
+/// # Parameters
+///
+/// * `branch` - the branch to trim
+/// * `threshold` - the stability threshold
+pub fn trim_branch(branch: &[Rc<ResolutionNode>], threshold: f64) -> Vec<Rc<ResolutionNode>> {
+    let regression = ClusterStabilityRegression::new(branch);
+    let a = branch
+        .iter()
+        .map(|node| (regression.predict(node.number_of_clusters() as f64), node))
+        .min_by(|a, b| {
+            (a.0 - threshold)
+                .abs()
+                .partial_cmp(&(b.0- threshold).abs())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    if let Some((_, optimal_node)) = a {
+        let cluster_cutoff = optimal_node.number_of_clusters();
+        branch.iter().filter(|node| node.number_of_clusters() <= cluster_cutoff).map(Rc::clone).collect()
+    } else {
+        branch.iter().map(Rc::clone).collect()
+    }
 }

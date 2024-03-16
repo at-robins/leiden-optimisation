@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use arguments::CommandLineArguments;
 use clap::Parser;
-use genealogy::{branch_to_resolution_data, trim_branch, ClusterGenealogyNode};
+use genealogy::{branch_to_resolution_data, trim_branch, ClusterGenealogyEntry};
 use graph::{to_graph, ResolutionNode};
 use input::parse_input_csv;
 use plotting::plot_branch;
@@ -36,10 +36,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     plot_branch(&top_branch, output_graph_path)?;
 
     let trimmed_top_branch = trim_branch(&top_branch, cl_args.stability_threashold());
-    let cluster_relation_tree = ClusterGenealogyNode::from_resolution_data(&branch_to_resolution_data(
-        &trimmed_top_branch,
-        &resolution_data,
-    )?)?;
+    let cluster_relation_tree = ClusterGenealogyEntry::from_resolution_data(
+        &branch_to_resolution_data(&trimmed_top_branch, &resolution_data)?,
+    )?;
     let output_genealogy_name = if let Some(file_name) = input_file.file_stem() {
         format!("genealogy_{}.json", file_name.to_string_lossy())
     } else {

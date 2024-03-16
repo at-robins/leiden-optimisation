@@ -12,39 +12,39 @@ use crate::{
 #[derive(CopyGetters, Getters, Clone, Debug, Deserialize, Serialize)]
 /// A node in a cluster relation tree over different clustering resolutions.
 pub struct ClusterGenealogyNode {
+    #[getset(get_copy = "pub")]
+    /// The ID of the cluster.
     cluster_id: usize,
-    origin_resolution: f64,
-    child_clusters: Vec<Self>,
+    child_clusters: Vec<usize>,
 }
 
-impl ClusterGenealogyNode {
-    /// Creates a new node with the specified cluster ID and origin resolution.
+#[derive(CopyGetters, Getters, Clone, Debug, Deserialize, Serialize)]
+/// An entry containing cluster relation data of all clusters sampled at a
+/// specific resolution.
+pub struct ClusterGenealogyEntry {
+    #[getset(get_copy = "pub")]
+    /// The number of clusters present at this resolution.
+    number_of_clusters: usize,
+    resolution: f64,
+    nodes: Vec<ClusterGenealogyNode>,
+}
+
+impl ClusterGenealogyEntry {
+    /// Creates a new cluster relation entry containing cluster relation data of 
+    /// all clusters sampled at a specific resolution.
     ///
     /// # Parameters
     ///
-    /// * `cluster_id` - the ID of the cluster that this node represents
-    /// * `origin_resolution` - the resolution the cluster was observed at
-    pub fn new(cluster_id: usize, origin_resolution: f64) -> Self {
+    /// * `resolution_data` - the [`ResolutionData`] the clusters have been sampled at
+    /// * `nodes` - the individual cluster nodes
+    pub fn new(resolution_data: &ResolutionData, mut nodes: Vec<ClusterGenealogyNode>) -> Self {
+        nodes.iter_mut().for_each(ClusterGenealogyNode::sort);
+        nodes.sort_by(|a, b| a.cluster_id().cmp(&b.cluster_id()));
         Self {
-            cluster_id,
-            origin_resolution,
-            child_clusters: Vec::new(),
+            number_of_clusters: resolution_data.clusters(),
+            resolution: resolution_data.resolution(),
+            nodes,
         }
-    }
-
-    /// Adds a child cluster to this parent cluster.
-    ///
-    /// # Parameters
-    ///
-    /// * `child_cluster` - the cluster node to set as child of this cluster
-    pub fn add_child_cluster(&mut self, child_cluster: Self) {
-        self.child_clusters.push(child_cluster);
-    }
-
-    /// Sorts the child nodes by cluster ID.
-    pub fn sort(&mut self) {
-        self.child_clusters
-            .sort_by(|a, b| a.cluster_id.cmp(&b.cluster_id));
     }
 
     /// Builds a cluster relation tree from a set of resolutions.
@@ -54,10 +54,11 @@ impl ClusterGenealogyNode {
     /// * `child_cluster` - the cluster node to set as child of this cluster
     pub fn from_resolution_data<T: Borrow<ResolutionData>>(
         data: &[T],
-    ) -> Result<Vec<ClusterGenealogyNode>, &'static str> {
+    ) -> Result<Vec<ClusterGenealogyEntry>, &'static str> {
         if data.is_empty() {
             return Ok(Vec::new());
         }
+        let mut entries = Vec::with_capacity(data.len());
         // The ordering is performed on the clusters not on the whole array, to prevent copying of large amounts of data.
         let mut resolution_data_ordering: Vec<(usize, usize)> = data
             .iter()
@@ -74,13 +75,12 @@ impl ClusterGenealogyNode {
         let mut bottom_nodes: Vec<(ClusterGenealogyNode, &Cluster)> = bottom_resolution
             .clustered_cells()
             .iter()
-            .map(|cluster| {
-                (
-                    ClusterGenealogyNode::new(cluster.cluster_id(), bottom_resolution.resolution()),
-                    cluster,
-                )
-            })
+            .map(|cluster| (ClusterGenealogyNode::new(cluster.cluster_id()), cluster))
             .collect();
+        entries.push(ClusterGenealogyEntry::new(
+            bottom_resolution,
+            bottom_nodes.iter().map(|(node, _)| node.clone()).collect(),
+        ));
         for top_resolution_index in ordered_iter {
             let top_resolution: &ResolutionData = data[top_resolution_index].borrow();
             let mut top_nodes: HashMap<usize, (ClusterGenealogyNode, &Cluster)> = top_resolution
@@ -89,29 +89,53 @@ impl ClusterGenealogyNode {
                 .map(|cluster| {
                     (
                         cluster.cluster_id(),
-                        (
-                            ClusterGenealogyNode::new(
-                                cluster.cluster_id(),
-                                top_resolution.resolution(),
-                            ),
-                            cluster,
-                        ),
+                        (ClusterGenealogyNode::new(cluster.cluster_id()), cluster),
                     )
                 })
                 .collect();
             for (bottom_node, bottom_cluster) in bottom_nodes.into_iter() {
                 let parent_id = bottom_cluster.best_parent(top_resolution.clustered_cells())?;
                 match top_nodes.get_mut(&parent_id) {
-                    Some(parent_node) => parent_node.0.add_child_cluster(bottom_node),
+                    Some(parent_node) => parent_node.0.add_child_cluster(bottom_node.cluster_id),
                     None => return Err("Parent node not found!"),
                 }
             }
+            entries.push(ClusterGenealogyEntry::new(
+                top_resolution,
+                top_nodes.values().map(|(node, _)| node.clone()).collect(),
+            ));
             bottom_nodes = top_nodes.into_values().collect();
-            // Sorts the child nodes by cluster ID.
-            bottom_nodes.iter_mut().for_each(|(node, _)| node.sort());
         }
+        entries.sort_by(|a, b| a.number_of_clusters().cmp(&b.number_of_clusters()));
+        Ok(entries)
+    }
+}
 
-        Ok(bottom_nodes.into_iter().map(|(node, _)| node).collect())
+impl ClusterGenealogyNode {
+    /// Creates a new node with the specified cluster ID.
+    ///
+    /// # Parameters
+    ///
+    /// * `cluster_id` - the ID of the cluster that this node represents
+    pub fn new(cluster_id: usize) -> Self {
+        Self {
+            cluster_id,
+            child_clusters: Vec::new(),
+        }
+    }
+
+    /// Adds a child cluster to this parent cluster.
+    ///
+    /// # Parameters
+    ///
+    /// * `child_cluster` - the ID of the cluster to set as child of this cluster
+    pub fn add_child_cluster(&mut self, child_cluster_id: usize) {
+        self.child_clusters.push(child_cluster_id);
+    }
+
+    /// Sorts the child nodes by cluster ID.
+    pub fn sort(&mut self) {
+        self.child_clusters.sort_by(|a, b| a.cmp(&b));
     }
 }
 
@@ -153,12 +177,16 @@ pub fn trim_branch(branch: &[Rc<ResolutionNode>], threshold: f64) -> Vec<Rc<Reso
         .min_by(|a, b| {
             (a.0 - threshold)
                 .abs()
-                .partial_cmp(&(b.0- threshold).abs())
+                .partial_cmp(&(b.0 - threshold).abs())
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
     if let Some((_, optimal_node)) = a {
         let cluster_cutoff = optimal_node.number_of_clusters();
-        branch.iter().filter(|node| node.number_of_clusters() <= cluster_cutoff).map(Rc::clone).collect()
+        branch
+            .iter()
+            .filter(|node| node.number_of_clusters() <= cluster_cutoff)
+            .map(Rc::clone)
+            .collect()
     } else {
         branch.iter().map(Rc::clone).collect()
     }

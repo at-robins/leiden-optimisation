@@ -30,7 +30,7 @@ pub struct ClusterGenealogyEntry {
 }
 
 impl ClusterGenealogyEntry {
-    /// Creates a new cluster relation entry containing cluster relation data of 
+    /// Creates a new cluster relation entry containing cluster relation data of
     /// all clusters sampled at a specific resolution.
     ///
     /// # Parameters
@@ -171,23 +171,19 @@ pub fn branch_to_resolution_data<'a, 'b>(
 /// * `threshold` - the stability threshold
 pub fn trim_branch(branch: &[Rc<ResolutionNode>], threshold: f64) -> Vec<Rc<ResolutionNode>> {
     let regression = ClusterStabilityRegression::new(branch);
-    let a = branch
-        .iter()
-        .map(|node| (regression.predict(node.number_of_clusters() as f64), node))
-        .min_by(|a, b| {
-            (a.0 - threshold)
-                .abs()
-                .partial_cmp(&(b.0 - threshold).abs())
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-    if let Some((_, optimal_node)) = a {
-        let cluster_cutoff = optimal_node.number_of_clusters();
-        branch
-            .iter()
-            .filter(|node| node.number_of_clusters() <= cluster_cutoff)
-            .map(Rc::clone)
-            .collect()
-    } else {
-        branch.iter().map(Rc::clone).collect()
+    let mut branch: Vec<Rc<ResolutionNode>> = branch.iter().map(Rc::clone).collect();
+    branch.sort_by(|a, b| a.number_of_clusters().cmp(&b.number_of_clusters()));
+    let mut trimmed_branch = Vec::new();
+    for node in branch.into_iter() {
+        if regression.predict(node.number_of_clusters() as f64) >= threshold {
+            // Keep nodes that are above the stability threshold.
+            trimmed_branch.push(node);
+        } else {
+            // When the threshold is crossed for the first time,
+            // discard all future clusterings.
+            break;
+        }
     }
+
+    trimmed_branch
 }

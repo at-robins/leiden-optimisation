@@ -15,6 +15,9 @@ pub struct ClusterGenealogyNode {
     #[getset(get_copy = "pub")]
     /// The ID of the cluster.
     cluster_id: usize,
+    /// The number of cells that belong to this cluster
+    number_of_cells: usize,
+    /// The child cluster IDs.
     child_clusters: Vec<usize>,
 }
 
@@ -75,7 +78,15 @@ impl ClusterGenealogyEntry {
         let mut bottom_nodes: Vec<(ClusterGenealogyNode, &Cluster)> = bottom_resolution
             .clustered_cells()
             .iter()
-            .map(|cluster| (ClusterGenealogyNode::new(cluster.cluster_id()), cluster))
+            .map(|cluster| {
+                (
+                    ClusterGenealogyNode::new(
+                        cluster.cluster_id(),
+                        cluster.absolute_cluster_size(),
+                    ),
+                    cluster,
+                )
+            })
             .collect();
         entries.push(ClusterGenealogyEntry::new(
             bottom_resolution,
@@ -89,7 +100,13 @@ impl ClusterGenealogyEntry {
                 .map(|cluster| {
                     (
                         cluster.cluster_id(),
-                        (ClusterGenealogyNode::new(cluster.cluster_id()), cluster),
+                        (
+                            ClusterGenealogyNode::new(
+                                cluster.cluster_id(),
+                                cluster.absolute_cluster_size(),
+                            ),
+                            cluster,
+                        ),
                     )
                 })
                 .collect();
@@ -117,9 +134,11 @@ impl ClusterGenealogyNode {
     /// # Parameters
     ///
     /// * `cluster_id` - the ID of the cluster that this node represents
-    pub fn new(cluster_id: usize) -> Self {
+    /// * `number_of_cells` - the number of cells that belong to this cluster
+    pub fn new(cluster_id: usize, number_of_cells: usize) -> Self {
         Self {
             cluster_id,
+            number_of_cells,
             child_clusters: Vec::new(),
         }
     }

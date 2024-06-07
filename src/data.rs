@@ -39,6 +39,11 @@ impl Cluster {
         }
     }
 
+    /// Returns the absolute size (number of cells) of this cluster.
+    pub fn absolute_cluster_size(&self) -> usize {
+        self.cells().len()
+    }
+
     /// Returns the relative cluster size compared to all other clusters of the same [`ResolutionData`].
     pub fn relative_cluster_size(&self) -> f64 {
         (self.cells().len() as f64) / (self.total_cell_count() as f64)
